@@ -28,7 +28,7 @@ export default function Sidebar() {
   ];
 
   return (
-    <aside className="w-64 min-h-screen bg-white border-r border-slate-200 flex flex-col justify-between select-none">
+    <aside className="w-full md:w-64 h-auto md:h-screen md:sticky md:top-0 shrink-0 bg-white border-r border-slate-200 flex flex-col justify-between select-none md:overflow-y-auto">
       <div>
         {/* Brand / Logo - Inspired by VIIT / Green Campus reference */}
         <div className="p-6 pb-4">

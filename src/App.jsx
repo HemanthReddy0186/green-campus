@@ -118,9 +118,9 @@ function AppContent() {
     );
   }
 
-  // Workspace Shell with Sidebar + Top Navbar
+  // Workspace Shell with Fixed Sidebar + Scrollable Right Workspace
   return (
-    <div className="min-h-screen bg-[#fafbfc] flex flex-col md:flex-row relative">
+    <div className="h-screen bg-[#fafbfc] flex flex-col md:flex-row relative overflow-hidden">
       {/* Toast Notification Banner */}
       {toast && (
         <div className="fixed top-5 right-5 z-50 animate-in fade-in slide-in-from-top-3 duration-200">
@@ -133,11 +133,11 @@ function AppContent() {
         </div>
       )}
 
-      {/* Persistent Minimalist Sidebar */}
+      {/* Persistent Left Sidebar - Locked/Fixed */}
       <Sidebar />
 
-      {/* Main Workspace Scroll Area */}
-      <div className="flex-1 flex flex-col min-h-screen overflow-y-auto">
+      {/* Main Workspace Scroll Area - Only the right side scrolls */}
+      <div className="flex-1 flex flex-col h-full md:h-screen overflow-y-auto">
         <TopNavbar />
 
         <main className="flex-1">
