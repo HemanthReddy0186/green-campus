@@ -17,6 +17,7 @@ import {
   Download,
   Info,
   Check,
+  Leaf,
   Code,
   Brain,
   Cpu,
@@ -97,11 +98,12 @@ export default function OnboardingWizard() {
   };
 
   const handleFinish = () => {
+    const yearTitle = ACADEMIC_YEARS.find((y) => y.id === selectedYear)?.title || `${selectedYear}th year`;
     // Save audit record
     addAudit({
-      title: `${selectedDept} ${ACADEMIC_YEARS.find((y) => y.id === selectedYear)?.title} - Audit`,
+      title: `${selectedDept} ${yearTitle} - Audit`,
       department: selectedDept,
-      year: `${selectedYear}rd year`,
+      year: yearTitle,
       section: `Section ${selectedSection}`,
       totalMonthlyKg: footprintResult.totalMonthly,
       annualEstimatedKg: footprintResult.totalAnnual,
@@ -111,6 +113,9 @@ export default function OnboardingWizard() {
       wasteKg: footprintResult.wasteMonthly,
       rating: footprintResult.rating,
       pointsEarned: 50,
+      commuteMode,
+      commuteDistance,
+      commuteDaysPerWeek: commuteDays,
     });
 
     // Update user profile
@@ -128,7 +133,7 @@ export default function OnboardingWizard() {
   const handleDownloadTemplate = () => {
     const csvContent =
       'data:text/csv;charset=utf-8,' +
-      'student_id,student_name,department,year,section,commute_mode,distance_km,ac_hours_daily,diet_type,plastic_bottles_weekly\n' +
+      'student_id,student_name,department,year,section,commute_mode,roundtrip_distance_km,ac_hours_daily,diet_type,plastic_bottles_weekly\n' +
       'STU101,Alex Rivera,CSE,3,F,petrol_two_wheeler,12,3,vegetarian,2\n' +
       'STU102,Priya Sharma,CSE,3,F,college_bus,18,0,vegan,0\n' +
       'STU103,Rohan Verma,CSE,3,F,bicycle,4,1,non_vegetarian_moderate,4\n';
@@ -266,7 +271,7 @@ export default function OnboardingWizard() {
       {currentStep > 1 && (
         <div className="text-xs font-medium text-slate-400 flex items-center gap-1.5">
           <span>{selectedDept}</span>
-          {currentStep >= 3 && <span>/ {selectedYear}rd year</span>}
+          {currentStep >= 3 && <span>/ {ACADEMIC_YEARS.find((y) => y.id === selectedYear)?.title || `${selectedYear}th year`}</span>}
           {currentStep >= 4 && <span>/ Section {selectedSection}</span>}
         </div>
       )}
@@ -775,7 +780,7 @@ export default function OnboardingWizard() {
                   {footprintResult.totalMonthly} <span className="text-sm font-medium text-slate-400">kg CO₂e / month</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Annualized impact: <span className="font-bold text-slate-800">{footprintResult.totalAnnual} kg CO₂e / year</span>
+                  Annualized 12-Month Equivalent Projection: <span className="font-bold text-slate-800">{footprintResult.totalAnnual} kg CO₂e / year</span>
                 </p>
               </div>
 

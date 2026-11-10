@@ -254,7 +254,7 @@ export default function ReportsHistory() {
                       <th className="pb-3">Department & Batch</th>
                       <th className="pb-3">Date</th>
                       <th className="pb-3">Monthly Footprint</th>
-                      <th className="pb-3">Annualized</th>
+                      <th className="pb-3" title="Annualized 12-Month Equivalent Projection">Annual (12-mo Proj.)</th>
                       <th className="pb-3">Rating</th>
                       <th className="pb-3 text-right">Points</th>
                     </tr>

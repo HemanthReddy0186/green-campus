@@ -13,48 +13,84 @@ import {
   Salad,
   Droplets,
   FileText,
+  Info,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import { EMISSION_FACTORS } from '../../data/emissionFactors';
 
+// Consistent monthly multiplier (30-day basis, same as emissionFactors.js)
+const WEEKS_PER_MONTH = 30 / 7;
+
 export default function WhatIfSimulator() {
-  const { currentUser, showToast, triggerConfetti } = useApp();
+  const { currentUser, auditHistory, showToast, triggerConfetti } = useApp();
 
-  // Habit toggles / sliders
+  // ── Habit toggles / sliders ─────────────────────────────────────────────────
   const [commuteSwitch, setCommuteSwitch] = useState('bus'); // 'none', 'bus', 'cycle'
-  const [acReductionHours, setAcReductionHours] = useState(2); // hours to cut
-  const [plantMealDays, setPlantMealDays] = useState(2); // days per week switching to plant-based
-  const [reusableBottle, setReusableBottle] = useState(true); // avoid 4 bottles/week
-  const [paperlessStudy, setPaperlessStudy] = useState(true); // avoid 20 pages/week
+  const [acReductionHours, setAcReductionHours] = useState(2);
+  const [plantMealDays, setPlantMealDays] = useState(2);
+  const [reusableBottle, setReusableBottle] = useState(true);
+  const [paperlessStudy, setPaperlessStudy] = useState(true);
 
-  // Calculate savings
-  // 1. Commute switch (assuming 14 km roundtrip, 5 days/wk)
+  // ── Derive baseline from the student's latest personal audit ─────────────────
+  // Preference order:
+  //   1. Latest live audit result (most accurate — the student's own data)
+  //   2. Documented campus average fallback (165 kg, same value used in emissionFactors.js)
+  const latestAudit = Array.isArray(auditHistory) && auditHistory.length > 0 ? auditHistory[0] : null;
+  const baselineMonthly = (latestAudit && Number(latestAudit.totalMonthlyKg) > 0)
+    ? Number(latestAudit.totalMonthlyKg)
+    : 165.0;
+
+  // ── Derive commute parameters from the latest audit or safe defaults ──────────
+  // If the student's audit contains commute details, use them.
+  // Otherwise use visible documented defaults so the student understands the assumption.
+  const currentCommuteMode     = latestAudit?.commuteMode     || 'petrol_two_wheeler';
+  const currentCommuteDistance = Math.max(0, Number(latestAudit?.commuteDistance)    || 0);
+  const currentCommuteDays     = Math.max(0, Math.min(7, Number(latestAudit?.commuteDaysPerWeek) || 5));
+  const currentCommuteFactor   = EMISSION_FACTORS.travel[currentCommuteMode] ?? 0.098;
+
+  // ── 1. Commute savings ───────────────────────────────────────────────────────
+  // Award savings only when:
+  //   a) The student has a non-zero commute distance
+  //   b) The student is NOT already using a zero-emission mode (walk/cycle)
+  //   c) The target mode has a lower emission factor than the current mode
   let commuteSavingKg = 0;
-  const weeklyKm = 14 * 5;
-  if (commuteSwitch === 'bus') {
-    // from petrol bike (0.098) to college bus (0.038)
-    commuteSavingKg = (weeklyKm * 4.2 * (0.098 - 0.038));
-  } else if (commuteSwitch === 'cycle') {
-    // from petrol bike (0.098) to cycle (0)
-    commuteSavingKg = (weeklyKm * 4.2 * 0.098);
-  }
+  const currentModeIsZeroEmission = currentCommuteFactor === 0;
+  const hasCommute               = currentCommuteDistance > 0;
 
-  // 2. AC reduction savings
+  if (hasCommute && !currentModeIsZeroEmission) {
+    const monthlyKm = currentCommuteDistance * currentCommuteDays * WEEKS_PER_MONTH;
+    if (commuteSwitch === 'bus') {
+      const targetFactor = EMISSION_FACTORS.travel.college_bus;
+      commuteSavingKg = Math.max(0, monthlyKm * (currentCommuteFactor - targetFactor));
+    } else if (commuteSwitch === 'cycle') {
+      const targetFactor = EMISSION_FACTORS.travel.bicycle; // 0.0
+      commuteSavingKg = Math.max(0, monthlyKm * (currentCommuteFactor - targetFactor));
+    }
+  }
+  // No commute savings if distance is zero or student already walks/cycles
+
+  // ── 2. AC reduction savings ──────────────────────────────────────────────────
   const acSavingKg = acReductionHours * 30 * EMISSION_FACTORS.ac_kwh_per_hour * EMISSION_FACTORS.electricity_per_kwh;
 
-  // 3. Plant meal savings (saving ~1.35 kg CO2 per day switched)
-  const mealSavingKg = plantMealDays * 4.2 * 1.35;
+  // ── 3. Plant-meal savings (non-veg moderate → vegetarian delta = 1.35 kg/day) ─
+  // Uses the same WEEKS_PER_MONTH denominator as the personal calculator.
+  const mealSavingKg = plantMealDays * WEEKS_PER_MONTH * 1.35;
 
-  // 4. Reusable bottle savings (avoid ~4 PET bottles/week)
-  const bottleSavingKg = reusableBottle ? 4 * 4.2 * EMISSION_FACTORS.plastic_bottle_kg : 0;
+  // ── 4. Reusable bottle savings (assume 4 PET bottles/week avoided) ────────────
+  const bottleSavingKg = reusableBottle ? 4 * WEEKS_PER_MONTH * EMISSION_FACTORS.plastic_bottle_kg : 0;
 
-  // 5. Paperless study
-  const paperSavingKg = paperlessStudy ? 20 * 4.2 * 0.025 : 0;
+  // ── 5. Paperless study savings (avoid 20 printed pages/week × 0.025 kg/page) ──
+  const paperSavingKg = paperlessStudy ? 20 * WEEKS_PER_MONTH * 0.025 : 0;
 
-  const totalMonthlySavingsKg = Math.round((commuteSavingKg + acSavingKg + mealSavingKg + bottleSavingKg + paperSavingKg) * 10) / 10;
-  const baselineMonthly = 162.0;
-  const simulatedMonthly = Math.max(30, Math.round((baselineMonthly - totalMonthlySavingsKg) * 10) / 10);
-  const percentReduction = Math.round((totalMonthlySavingsKg / baselineMonthly) * 100);
+  const totalMonthlySavingsKg = Math.round(
+    (commuteSavingKg + acSavingKg + mealSavingKg + bottleSavingKg + paperSavingKg) * 10
+  ) / 10;
+
+  // Simulated footprint — cannot go below zero (no negative emissions)
+  const simulatedMonthly = Math.max(0, Math.round((baselineMonthly - totalMonthlySavingsKg) * 10) / 10);
+  const percentReduction = baselineMonthly > 0
+    ? Math.round((totalMonthlySavingsKg / baselineMonthly) * 100)
+    : 0;
   const annualTreesEquivalent = Math.round((totalMonthlySavingsKg * 12) / 21 * 10) / 10;
 
   const handleCommitGoal = () => {
@@ -68,6 +104,14 @@ export default function WhatIfSimulator() {
     setPlantMealDays(0);
     setReusableBottle(false);
     setPaperlessStudy(false);
+  };
+
+  // Determine the commute mode label for display
+  const commuteModeLabels = {
+    walking: 'Walking', bicycle: 'Bicycle', metro: 'Metro',
+    college_bus: 'College Bus', public_bus: 'Public Bus',
+    ev_two_wheeler: 'EV Scooter', petrol_two_wheeler: 'Petrol Bike',
+    carpool: 'Carpool', petrol_car_solo: 'Solo Car',
   };
 
   return (
@@ -95,6 +139,22 @@ export default function WhatIfSimulator() {
         </button>
       </div>
 
+      {/* Baseline info banner */}
+      <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-start gap-3 text-xs text-slate-700">
+        <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+        <div>
+          <span className="font-bold">Simulation baseline: </span>
+          {latestAudit
+            ? <>Your latest personal audit (<span className="font-mono font-bold">{baselineMonthly} kg CO₂e/mo</span>){' '}
+                — commuting by <span className="font-semibold">{commuteModeLabels[currentCommuteMode] || currentCommuteMode}</span>,{' '}
+                {currentCommuteDistance} km/day × {currentCommuteDays} days/week.
+              </>
+            : <>No personal audit found — using campus average fallback (<span className="font-mono font-bold">165 kg CO₂e/mo</span>).{' '}
+                Complete a carbon audit in the onboarding wizard to personalise this simulator.</>
+          }
+        </div>
+      </div>
+
       {/* Side-by-Side Impact Scoreboard */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Baseline Card */}
@@ -109,7 +169,9 @@ export default function WhatIfSimulator() {
             <span className="text-xs text-slate-400 font-semibold ml-2">kg CO₂e / mo</span>
           </div>
           <div className="text-xs text-slate-500">
-            Standard campus student average based on solo commute and normal energy use.
+            {latestAudit
+              ? 'Based on your latest personal carbon audit.'
+              : 'Campus student average (no audit on file).'}
           </div>
         </div>
 
@@ -202,6 +264,22 @@ export default function WhatIfSimulator() {
                 Bicycle / Walk
               </button>
             </div>
+            {/* Contextual note when no commute savings apply */}
+            {commuteSwitch !== 'none' && !hasCommute && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                Your logged commute distance is 0 km — no commute savings apply for hostel students.
+              </p>
+            )}
+            {commuteSwitch !== 'none' && hasCommute && currentModeIsZeroEmission && (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5">
+                You already use a zero-emission commute ({commuteModeLabels[currentCommuteMode]}). No further commute savings apply.
+              </p>
+            )}
+            {hasCommute && !currentModeIsZeroEmission && (
+              <p className="text-[11px] text-slate-400">
+                Based on your {currentCommuteDistance} km/day × {currentCommuteDays} days/week commute by {commuteModeLabels[currentCommuteMode] || currentCommuteMode}.
+              </p>
+            )}
           </div>
 
           {/* Reduce AC Usage */}
@@ -274,12 +352,17 @@ export default function WhatIfSimulator() {
                 <Droplets className="w-4 h-4 text-blue-500" />
                 <span>Carry reusable water bottle (0 single-use PET)</span>
               </div>
-              <input
-                type="checkbox"
-                checked={reusableBottle}
-                onChange={(e) => setReusableBottle(e.target.checked)}
-                className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900"
-              />
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-emerald-700">
+                  -{Math.round(bottleSavingKg * 10) / 10} kg/mo
+                </span>
+                <input
+                  type="checkbox"
+                  checked={reusableBottle}
+                  onChange={(e) => setReusableBottle(e.target.checked)}
+                  className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900"
+                />
+              </div>
             </label>
 
             <label className="flex items-center justify-between cursor-pointer p-2 rounded-lg hover:bg-slate-50">
@@ -287,12 +370,17 @@ export default function WhatIfSimulator() {
                 <FileText className="w-4 h-4 text-amber-500" />
                 <span>100% digital notes & zero paper prints</span>
               </div>
-              <input
-                type="checkbox"
-                checked={paperlessStudy}
-                onChange={(e) => setPaperlessStudy(e.target.checked)}
-                className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900"
-              />
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-bold text-emerald-700">
+                  -{Math.round(paperSavingKg * 10) / 10} kg/mo
+                </span>
+                <input
+                  type="checkbox"
+                  checked={paperlessStudy}
+                  onChange={(e) => setPaperlessStudy(e.target.checked)}
+                  className="w-4 h-4 rounded text-slate-900 focus:ring-slate-900"
+                />
+              </div>
             </label>
           </div>
         </div>
@@ -317,4 +405,3 @@ export default function WhatIfSimulator() {
     </div>
   );
 }
-

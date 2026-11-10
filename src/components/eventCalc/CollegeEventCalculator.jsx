@@ -131,9 +131,14 @@ export default function CollegeEventCalculator() {
             <span>•</span>
             <span className="flex items-center gap-1 text-emerald-400">
               <TreePine className="w-3.5 h-3.5" />
-              <span>Offset with <strong>{result.treesToOffset} campus trees</strong></span>
+              <span>Offset requires <strong>{result.treesToOffset} mature trees growing for 1 year</strong></span>
             </span>
           </div>
+          {result.effectiveCommuteSplit?.wasNormalized && (
+            <div className="mt-2 px-3 py-1.5 bg-amber-500/20 border border-amber-400/40 rounded-xl text-[11px] text-amber-200">
+              ⚠ Commute mode percentages exceeded 100% and were automatically scaled to sum to 100%.
+            </div>
+          )}
         </div>
 
         {/* Category Breakdown Chips */}

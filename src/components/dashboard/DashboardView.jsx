@@ -31,6 +31,12 @@ export default function DashboardView() {
   const userDept = leaderboard.find((d) => d.deptId === currentUser.department) || leaderboard[0];
   const latestAudit = auditHistory[0];
 
+  // Dynamic campus-average comparison (campus average = 165 kg CO2e/mo)
+  const CAMPUS_AVERAGE = 165.0;
+  const footprintKg = latestAudit ? Number(latestAudit.totalMonthlyKg) : CAMPUS_AVERAGE;
+  const diffPct = Math.round(((footprintKg - CAMPUS_AVERAGE) / CAMPUS_AVERAGE) * 100);
+  const isBelowAverage = diffPct <= 0;
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 text-left">
       {/* Top Banner / Heading — Faithful to Screen 05 */}
@@ -71,13 +77,19 @@ export default function DashboardView() {
           <div>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-extrabold tracking-tight text-slate-950">
-                {latestAudit ? latestAudit.totalMonthlyKg : '142.6'}
+                {latestAudit ? latestAudit.totalMonthlyKg : CAMPUS_AVERAGE}
               </span>
               <span className="text-xs font-semibold text-slate-400">kg CO₂e / mo</span>
             </div>
-            <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-emerald-700">
+            <div className={`flex items-center gap-1.5 mt-2 text-xs font-medium ${isBelowAverage ? 'text-emerald-700' : 'text-rose-600'}`}>
               <TrendingDown className="w-3.5 h-3.5" />
-              <span>18% below campus average (165 kg)</span>
+              <span>
+                {latestAudit
+                  ? isBelowAverage
+                    ? `${Math.abs(diffPct)}% below campus average (${CAMPUS_AVERAGE} kg)`
+                    : `${diffPct}% above campus average (${CAMPUS_AVERAGE} kg)`
+                  : `Campus average baseline (${CAMPUS_AVERAGE} kg) — complete an audit`}
+              </span>
             </div>
           </div>
         </div>
